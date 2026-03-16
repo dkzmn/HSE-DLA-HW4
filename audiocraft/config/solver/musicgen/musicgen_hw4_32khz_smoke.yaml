@@ -9,7 +9,7 @@ defaults:
   - _self_
 
 autocast: false
-autocast_dtype: float32
+autocast_dtype: float16
 
 compression_model_checkpoint: //pretrained/facebook/encodec_32khz
 channels: 1
