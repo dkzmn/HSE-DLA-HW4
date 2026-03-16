@@ -1,0 +1,48 @@
+# @package __global__
+
+# Minimal smoke configuration for HW4 fine-tuning pipeline checks.
+defaults:
+  - musicgen/default
+  - /model: lm/musicgen_lm
+  - override /dset: audio/hw4_musiccaps_32khz
+  - override /conditioner: text2music
+  - _self_
+
+autocast: false
+autocast_dtype: float32
+
+compression_model_checkpoint: //pretrained/facebook/encodec_32khz
+channels: 1
+sample_rate: 32000
+
+deadlock:
+  use: false
+
+dataset:
+  batch_size: 2
+  num_workers: 0
+  segment_duration: 5
+  sample_on_weight: false
+  sample_on_duration: false
+  train:
+    num_samples: 8
+  valid:
+    num_samples: 4
+  generate:
+    num_samples: 2
+
+optim:
+  epochs: 1
+  updates_per_epoch: 2
+  optimizer: adamw
+  lr: 1e-4
+
+checkpoint:
+  save_last: false
+  save_every: 0
+  keep_last: 0
+
+generate:
+  every: 0
+evaluate:
+  every: 0

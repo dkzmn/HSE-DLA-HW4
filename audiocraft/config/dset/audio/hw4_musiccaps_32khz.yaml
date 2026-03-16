@@ -1,0 +1,10 @@
+# @package __global__
+
+datasource:
+  max_sample_rate: 32000
+  max_channels: 1
+
+  train: ../data/manifests/train.jsonl.gz
+  valid: ../data/manifests/valid.jsonl.gz
+  evaluate: ../data/manifests/valid.jsonl.gz
+  generate: ../data/manifests/valid.jsonl.gz

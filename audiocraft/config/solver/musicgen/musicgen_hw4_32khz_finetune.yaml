@@ -1,0 +1,56 @@
+# @package __global__
+
+# Fine-tuning config for HW4 on local MusicCaps-style 10s clips.
+defaults:
+  - musicgen/default
+  - /model: lm/musicgen_lm
+  - override /dset: audio/hw4_musiccaps_32khz
+  - override /conditioner: text2music
+  - _self_
+
+autocast: true
+autocast_dtype: float16
+
+compression_model_checkpoint: //pretrained/facebook/encodec_32khz
+channels: 1
+sample_rate: 32000
+
+deadlock:
+  use: false
+
+dataset:
+  # Single-GPU friendly defaults; increase if memory allows.
+  batch_size: 8
+  num_workers: 4
+  segment_duration: 10
+  min_segment_ratio: 1.0
+  sample_on_weight: false
+  sample_on_duration: false
+  train:
+    num_samples: 20000
+    # Favor structured metadata while preserving CFG behavior.
+    merge_text_p: 1.0
+    drop_desc_p: 0.3
+    drop_other_p: 0.8
+  valid:
+    num_samples: 2000
+  generate:
+    num_samples: 8
+
+optim:
+  epochs: 50
+  updates_per_epoch: 500
+  optimizer: adamw
+  lr: 1e-4
+  max_norm: 1.0
+  eager_sync: true
+
+checkpoint:
+  save_last: true
+  save_every: 5
+  keep_last: 5
+
+generate:
+  every: 10
+evaluate:
+  every: 10
