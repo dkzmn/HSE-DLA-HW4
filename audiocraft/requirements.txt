@@ -2,6 +2,7 @@
 av==11.0.0
 einops
 flashy>=0.0.1
+comet_ml
 hydra-core>=1.1
 hydra_colorlog
 julius
