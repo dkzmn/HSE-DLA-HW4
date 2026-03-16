@@ -6,6 +6,8 @@
 
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
+import numbers
+import os
 from pathlib import Path
 import typing as tp
 
@@ -46,12 +48,15 @@ class StandardSolver(ABC, flashy.BaseSolver):
         self._fsdp_modules: tp.List[fsdp.FSDP] = []
         self._ema_sources: nn.ModuleDict = nn.ModuleDict()
         self.ema: tp.Optional[optim.ModuleDictEMA] = None
+        self.comet_experiment: tp.Optional[tp.Any] = None
         self.dataloaders: tp.Dict[str, torch.utils.data.DataLoader] = dict()
         self._log_updates = self.cfg.logging.get('log_updates', 10)
         if self.cfg.logging.log_tensorboard:
             self.init_tensorboard(**self.cfg.get('tensorboard'))
         if self.cfg.logging.log_wandb and self:
             self.init_wandb(**self.cfg.get('wandb'))
+        if self.cfg.logging.get('log_comet', False):
+            self.init_comet(**self.cfg.get('comet'))
         # keep a copy of the best performing state for stateful objects
         # used for evaluation and generation stages
         dtype_best: tp.Optional[torch.dtype] = None
@@ -98,6 +103,97 @@ class StandardSolver(ABC, flashy.BaseSolver):
     def autocast(self):
         """Convenient autocast (or not) using the solver configuration."""
         return TorchAutocast(enabled=self.cfg.autocast, device_type=self.device, dtype=self.autocast_dtype)
+
+    @staticmethod
+    def _flatten_config(prefix: str, value: tp.Any, out: tp.Dict[str, tp.Any]):
+        if isinstance(value, dict):
+            for k, v in value.items():
+                key = f"{prefix}.{k}" if prefix else str(k)
+                StandardSolver._flatten_config(key, v, out)
+        elif isinstance(value, list):
+            out[prefix] = ",".join([str(v) for v in value])
+        else:
+            out[prefix] = value
+
+    def init_comet(self, **kwargs):
+        """Initialize CometML experiment if enabled and available."""
+        try:
+            import comet_ml
+        except ImportError:
+            self.logger.warning("CometML logging is enabled, but comet_ml is not installed.")
+            return
+
+        api_key = kwargs.pop('api_key', None) or os.getenv('COMET_API_KEY')
+        workspace = kwargs.pop('workspace', None)
+        project_name = kwargs.pop('project', None)
+        experiment_name = kwargs.pop('name', None)
+        offline = bool(kwargs.pop('offline', False))
+        disabled = bool(kwargs.pop('disabled', False))
+        tags = kwargs.pop('tags', [])
+
+        if disabled:
+            self.logger.info("CometML logging is explicitly disabled by config.")
+            return
+        if not offline and not api_key:
+            self.logger.warning("CometML logging is enabled, but COMET_API_KEY is not set.")
+            return
+
+        init_kwargs: tp.Dict[str, tp.Any] = {'auto_output_logging': 'simple'}
+        if offline:
+            experiment_cls = comet_ml.OfflineExperiment
+        else:
+            experiment_cls = comet_ml.Experiment
+            init_kwargs['api_key'] = api_key
+
+        if workspace:
+            init_kwargs['workspace'] = workspace
+        if project_name:
+            init_kwargs['project_name'] = project_name
+
+        # Allow passing through additional Comet options from config.
+        for key, value in kwargs.items():
+            if value is not None:
+                init_kwargs[key] = value
+
+        try:
+            self.comet_experiment = experiment_cls(**init_kwargs)
+            if experiment_name:
+                self.comet_experiment.set_name(experiment_name)
+            if tags:
+                self.comet_experiment.add_tags(tags)
+            self.comet_experiment.log_other('xp_sig', self.xp.sig)
+            self.comet_experiment.log_other('xp_folder', str(self.xp.folder))
+            self.logger.info("CometML experiment initialized.")
+        except Exception as exc:
+            self.logger.warning("Failed to initialize CometML: %r", exc)
+            self.comet_experiment = None
+
+    def _log_comet_hyperparams(self):
+        if self.comet_experiment is None:
+            return
+        flat_cfg: tp.Dict[str, tp.Any] = {}
+        self._flatten_config('', dict_from_config(self.cfg), flat_cfg)
+        try:
+            self.comet_experiment.log_parameters(flat_cfg)
+        except Exception as exc:
+            self.logger.warning("Failed to log hyperparameters to CometML: %r", exc)
+
+    def _log_comet_metrics(self, stage_metrics: tp.Dict[str, tp.Any], step: int):
+        if self.comet_experiment is None:
+            return
+        metric_payload: tp.Dict[str, float] = {}
+        for stage_name, metrics in stage_metrics.items():
+            if not isinstance(metrics, dict):
+                continue
+            for metric_name, metric_value in metrics.items():
+                if isinstance(metric_value, numbers.Number):
+                    metric_payload[f"{stage_name}/{metric_name}"] = float(metric_value)
+        if not metric_payload:
+            return
+        try:
+            self.comet_experiment.log_metrics(metric_payload, step=step)
+        except Exception as exc:
+            self.logger.warning("Failed to log metrics to CometML: %r", exc)
 
     def _get_state_source(self, name) -> flashy.state.StateDictSource:
         # Internal utility to get a state source from the solver
@@ -457,6 +553,7 @@ class StandardSolver(ABC, flashy.BaseSolver):
         """Commit metrics to dora and save checkpoints at the end of an epoch."""
         # we override commit to introduce more complex checkpoint saving behaviors
         self.history.append(self._pending_metrics)  # This will increase self.epoch
+        self._log_comet_metrics(self._pending_metrics, step=self.epoch)
         if save_checkpoints:
             self.save_checkpoints()
         self._start_epoch()
@@ -491,12 +588,20 @@ class StandardSolver(ABC, flashy.BaseSolver):
         assert len(self.state_dict()) > 0
         self.restore(replay_metrics=True)  # load checkpoint and replay history
         self.log_hyperparams(dict_from_config(self.cfg))
-        for epoch in range(self.epoch, self.cfg.optim.epochs + 1):
-            if self.should_stop_training():
-                return
-            self.run_epoch()
-            # Commit will send the metrics to Dora and save checkpoints by default.
-            self.commit()
+        self._log_comet_hyperparams()
+        try:
+            for epoch in range(self.epoch, self.cfg.optim.epochs + 1):
+                if self.should_stop_training():
+                    return
+                self.run_epoch()
+                # Commit will send the metrics to Dora and save checkpoints by default.
+                self.commit()
+        finally:
+            if self.comet_experiment is not None:
+                try:
+                    self.comet_experiment.end()
+                except Exception as exc:
+                    self.logger.warning("Failed to finalize CometML experiment: %r", exc)
 
     def should_stop_training(self) -> bool:
         """Check whether we should stop training or not."""

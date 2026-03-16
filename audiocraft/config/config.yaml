@@ -33,6 +33,7 @@ logging:
   log_updates: 10
   log_tensorboard: false
   log_wandb: false
+  log_comet: false
 tensorboard:
   with_media_logging: false
   name:  # optional name for the experiment
@@ -42,6 +43,13 @@ wandb:
   project:  # project name
   name:  # optional name for the experiment
   group:  # optional group
+comet:
+  project:  # project name
+  workspace:  # workspace name
+  name:  # optional experiment name
+  offline: false
+  disabled: false
+  tags: []  # optional list of tags
 
 # SLURM launcher configuration.
 slurm:
