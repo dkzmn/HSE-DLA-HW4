@@ -10,6 +10,7 @@ import numbers
 import os
 from pathlib import Path
 import typing as tp
+import comet_ml
 
 import flashy
 import omegaconf
@@ -117,11 +118,6 @@ class StandardSolver(ABC, flashy.BaseSolver):
 
     def init_comet(self, **kwargs):
         """Initialize CometML experiment if enabled and available."""
-        try:
-            import comet_ml
-        except ImportError:
-            self.logger.warning("CometML logging is enabled, but comet_ml is not installed.")
-            return
 
         api_key = kwargs.pop('api_key', None) or os.getenv('COMET_API_KEY')
         workspace = kwargs.pop('workspace', None)
@@ -150,7 +146,6 @@ class StandardSolver(ABC, flashy.BaseSolver):
         if project_name:
             init_kwargs['project_name'] = project_name
 
-        # Allow passing through additional Comet options from config.
         for key, value in kwargs.items():
             if value is not None:
                 init_kwargs[key] = value
