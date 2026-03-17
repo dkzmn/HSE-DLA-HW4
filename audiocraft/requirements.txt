@@ -27,6 +27,6 @@ protobuf
 torchvision==0.16.0
 torchtext==0.16.0
 pesq
-pydantic<2
+pydantic>=2,<3
 pystoi
 torchdiffeq

@@ -6,19 +6,37 @@
 git clone https://github.com/dkzmn/HSE-DLA-HW4.git
 cd HSE-DLA-HW4
 
-python -m venv .venv
+#Python нужен именно 3.10 иначе зависимости ломаются (3.11 тоже вроде норм, но не пробовал)
+python3.10 -m venv .venv
 source .venv/bin/activate
 python -m pip install -U pip
 python -m pip install -r audiocraft/requirements.txt
+
+#Не стал включать в зависимости, так нужны только на этапе подготовки датасета
 python -m pip install gdown datasets ollama
+
+#Устанавливается отдельно, так как нужно ставить без зависимостей, иначе ругается
 python -m pip install av --no-deps
+
+#Ставим audiocraft как модель, чтобы потом инференсить
 python -m pip install -e audiocraft
+
+dvc remote modify storage endpointurl https://storage.yandexcloud.net
+dvc remote modify storage region ru-central1
+dvc remote modify storage allow_anonymous_login true
 dvc pull data/wav
 dvc pull dataset.csv
 ```
 
 ## Сбор данных MusicCaps
 Данные уже в DVC, этот пункт можно пропустить
+Но если вдруг решитесь, то должны быть установлены yt-dlp и ffmpeg
+```bash
+brew install yt-dlp ffmpeg
+sudo apt install -y yt-dlp ffmpeg
+```
+
+Собственно запуск парсинга аудио:
 ```bash
 python scripts/download_musiccaps.py --output-dir data --skip-existing
 ```
@@ -26,6 +44,7 @@ python scripts/download_musiccaps.py --output-dir data --skip-existing
 ## Обогащение метаданных с помощью LLM
 Данные уже в DVC, этот пункт можно пропустить
 ```bash
+#Модкль может быть любая или несколько, json-ы будут складываться в индивидуальные папки, для обучения нужно будет скопировать их в data/wav
 ollama pull llama3.1:8b
 ollama run llama3.1:8b
 python scripts/create_json.py --models llama3.1:8b --skip-existing
