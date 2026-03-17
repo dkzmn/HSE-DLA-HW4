@@ -11,8 +11,8 @@ num2words
 numpy<2.0.0
 sentencepiece
 spacy==3.7.6
-torch==2.4.1
-torchaudio==2.4.1
+torch==2.1.0
+torchaudio>=2.0.0,<2.1.2
 huggingface_hub
 tqdm
 transformers==4.38.2 #>=4.31.0  # need Encodec there.
@@ -24,9 +24,8 @@ gradio
 torchmetrics
 encodec
 protobuf
-# torchvision==0.16.0
-# torchtext==0.16.0
-torchvision==0.19.1
+torchvision==0.16.0
+torchtext==0.16.0
 pesq
 pydantic<2
 pystoi
