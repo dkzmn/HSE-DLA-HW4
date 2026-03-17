@@ -63,24 +63,14 @@ def resolve_model_path(model_path: str, export_dir: Path) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--model-path", required=True)
-    parser.add_argument("--output-dir", type=Path, default=Path("generated_test_tracks"))
+    parser.add_argument("--output-dir", type=Path, default=Path("../generated_wav"))
     parser.add_argument("--duration", type=int, default=12)
     parser.add_argument("--device", type=str, default="cuda")
-    parser.add_argument("--seed", type=int, default=1234)
+    parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--top-k", type=int, default=250)
     parser.add_argument("--temperature", type=float, default=1.0)
-    parser.add_argument(
-        "--auto-export-dir",
-        type=Path,
-        default=Path("auto_export_model"),
-        help="Where to auto-export if --model-path points to *.th checkpoint.",
-    )
-    parser.add_argument(
-        "--prompts-dir",
-        type=Path,
-        default=Path("prompts"),
-        help="Directory with JSON prompt files.",
-    )
+    parser.add_argument("--auto-export-dir", type=Path, default=Path("../auto_export_model"))
+    parser.add_argument("--prompts-dir", type=Path, default=Path("prompts"))
     args = parser.parse_args()
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -102,10 +92,8 @@ def main() -> None:
     for stem_name, prompt in prompts:
         prompt_text = prompt_to_text(prompt)
         wav = model.generate([prompt_text], progress=True)[0].cpu()
-
         stem = args.output_dir / stem_name
         audio_write(stem, wav, model.sample_rate, strategy="loudness")
-
         print(f"[OK] {stem_name} generated")
 
 

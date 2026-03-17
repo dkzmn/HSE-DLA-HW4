@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import argparse
 import csv
 import json
@@ -6,7 +5,6 @@ import re
 import sys
 from pathlib import Path
 from typing import Any
-
 from ollama import Client
 
 
@@ -55,7 +53,6 @@ def parse_json_object(text: str) -> dict[str, Any]:
 
 def normalize_output(data: dict[str, Any]) -> dict[str, Any]:
     normalized: dict[str, Any] = {}
-
     for key, expected_type in REQUIRED_FIELDS.items():
         value = data.get(key)
         if expected_type is list:
@@ -67,7 +64,6 @@ def normalize_output(data: dict[str, Any]) -> dict[str, Any]:
                 normalized[key] = []
         else:
             normalized[key] = str(value).strip() if value is not None else ""
-
     return normalized
 
 
@@ -141,9 +137,6 @@ def main() -> None:
         print(f"Generated: {ok}")
         print(f"Skipped: {skipped}")
         print(f"Failed: {failed}")
-        if failed > 0:
-            had_failures = True
-
     print("\nDone.")
 
 

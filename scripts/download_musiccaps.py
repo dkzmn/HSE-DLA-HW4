@@ -3,7 +3,6 @@ import csv
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, Iterable, Optional
 from datasets import load_dataset
 
 
@@ -62,8 +61,6 @@ def main():
             youtube_url = f"https://www.youtube.com/watch?v={ytid}"
             out_name = f"{ytid}_{start_s}_{end_s}.wav"
             out_path = wav_dir / out_name
-
-            # print(out_path)
 
             if args.skip_existing and out_path.exists():
                 skipped += 1

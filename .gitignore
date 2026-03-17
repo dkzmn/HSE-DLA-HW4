@@ -1,4 +1,5 @@
 data/*
 !data/wav.dvc
+!data/dataset.csv.dvc
 __pycache__/
 .DS_Store
