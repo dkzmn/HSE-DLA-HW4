@@ -25,7 +25,7 @@ dvc remote modify storage endpointurl https://storage.yandexcloud.net
 dvc remote modify storage region ru-central1
 dvc remote modify storage allow_anonymous_login true
 dvc pull data/wav
-dvc pull dataset.csv
+dvc pull data/dataset.csv
 ```
 
 ## Сбор данных MusicCaps
@@ -44,7 +44,7 @@ python scripts/download_musiccaps.py --output-dir data --skip-existing
 ## Обогащение метаданных с помощью LLM
 Данные уже в DVC, этот пункт можно пропустить
 ```bash
-#Модкль может быть любая или несколько, json-ы будут складываться в индивидуальные папки, для обучения нужно будет скопировать их в data/wav
+#Модель может быть любая или несколько, json-ы будут складываться в индивидуальные папки, для обучения нужно будет скопировать их в data/wav
 ollama pull llama3.1:8b
 ollama run llama3.1:8b
 python scripts/create_json.py --models llama3.1:8b --skip-existing
@@ -60,9 +60,12 @@ python scripts/prepare_audiocraft_manifests.py --wav-dir data/wav --manifests-di
 
 ### Запуск fine-tuning (small)
 ```bash
+#Если скрипты запускаются из корня проекта, то обучение нужно запускать из audiocraft
+cd audiocraft
 python -m audiocraft.train \
   solver=musicgen/musicgen_hw4_32khz_finetune \
-  continue_from=//pretrained/facebook/musicgen-small
+  continue_from=//pretrained/facebook/musicgen-small \
+  dataset.num_workers=0
 ```
 
 Для обучения на Yandex DataSphere использовал ноутбук [notebooks/notebook_for_yandex.ipynb](notebooks/notebook_for_yandex.ipynb)
@@ -78,11 +81,12 @@ WAV файлы, сгенерированные с помощью лучшей д
 
 Для скачивания можно выполнить команду:
 ```bash
+cd ..
 python scripts/download_model.py
 ```
 
 ```bash
-python scripts/generate_test_tracks.py \
+python scripts/generate_wav.py \
   --model-path checkpoints/best_model_small \
   --prompts-dir prompts \
   --output-dir generated_wav \
